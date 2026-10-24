@@ -48,7 +48,14 @@ export default function ListePage() {
   })}`;
 
   return (
-    <Seite titel="Liste">
+    <Seite
+      titel="Liste"
+      aktionen={
+        <Link to="/verschieben" className="btn-sekundaer px-3">
+          🧳 Packliste
+        </Link>
+      }
+    >
       <div className="mb-4 space-y-3">
         <label htmlFor="suche" className="sr-only">
           Suche

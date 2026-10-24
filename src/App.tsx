@@ -7,6 +7,8 @@ import ListePage from './pages/ListePage';
 import VerschiebenPage from './pages/VerschiebenPage';
 import Platzhalter from './pages/Platzhalter';
 import TeilFormPage from './pages/TeilFormPage';
+import UebersichtPage from './pages/UebersichtPage';
+import WaeschePage from './pages/WaeschePage';
 
 export default function App() {
   useFarbschema(); // wendet gespeichertes Farbschema an
@@ -14,13 +16,13 @@ export default function App() {
     <>
       <main>
         <Routes>
-          <Route path="/" element={<Platzhalter titel="Übersicht" />} />
+          <Route path="/" element={<UebersichtPage />} />
           <Route path="/liste" element={<ListePage />} />
           <Route path="/neu" element={<TeilFormPage />} />
           <Route path="/teil/:id" element={<TeilFormPage />} />
           <Route path="/gruppe/:schluessel" element={<GruppePage />} />
           <Route path="/verschieben" element={<VerschiebenPage />} />
-          <Route path="/waesche" element={<Platzhalter titel="Wäsche" />} />
+          <Route path="/waesche" element={<WaeschePage />} />
           <Route path="/verlauf" element={<Platzhalter titel="Verlauf" />} />
           <Route path="/einstellungen" element={<Platzhalter titel="Einstellungen" />} />
           <Route path="*" element={<Platzhalter titel="Seite nicht gefunden" />} />

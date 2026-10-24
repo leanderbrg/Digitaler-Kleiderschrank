@@ -32,7 +32,6 @@ export default function ListePage() {
 
   const gefiltert = useMemo(
     () => filterTeile(teile ?? [], filter, n.kategorieName),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [teile, filter.standortId, filter.kategorieId, filter.status, filter.suche, n],
   );
   const gruppen = useMemo(

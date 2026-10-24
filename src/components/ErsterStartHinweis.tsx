@@ -10,7 +10,11 @@ export default function ErsterStartHinweis() {
   const geladen = useLiveQuery(() => db.einstellungen.count().then(() => true), []);
   const offen = geladen === true && !gesehen;
 
-  const schliessen = () => setzeEinstellung('hinweisGesehen', true);
+  const schliessen = () => {
+    // Browser bitten, die Daten nicht bei Speicherknappheit automatisch zu löschen
+    navigator.storage?.persist?.().catch(() => {});
+    return setzeEinstellung('hinweisGesehen', true);
+  };
 
   return (
     <Dialog

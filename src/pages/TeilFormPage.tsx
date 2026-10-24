@@ -99,7 +99,7 @@ export default function TeilFormPage() {
     return () => {
       abbruch = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // bewusst nur bei ID-Wechsel – spätere Filter-Parameter sollen Eingaben nicht überschreiben
   }, [id, vorlageId]);
 
   // Standardwerte, sobald Standorte/Kategorien geladen sind

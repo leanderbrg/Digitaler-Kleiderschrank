@@ -44,20 +44,15 @@ export default function TeilKarte({ teil, gross, auswahlModus, gewaehlt, onUmsch
             />
           </label>
         )}
-        <button
-          type="button"
-          tabIndex={auswahlModus ? 0 : -1}
-          aria-hidden={!auswahlModus}
-          onClick={auswahlModus ? onUmschalten : undefined}
-          className={auswahlModus ? '' : 'cursor-default'}
-        >
+        {/* Im Auswahlmodus schaltet auch ein Tipp aufs Foto (die Checkbox bleibt das zugängliche Element) */}
+        <div onClick={auswahlModus ? onUmschalten : undefined} className={auswahlModus ? 'cursor-pointer' : ''}>
           <TeilFoto
             blob={gross ? teil.foto : teil.thumb}
             alt={`Foto von ${teil.name}`}
             emoji={n.kategorieEmoji(teil.kategorieId)}
             className={gross ? 'h-28 w-28 sm:h-36 sm:w-36' : 'h-16 w-16'}
           />
-        </button>
+        </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{teil.name}</p>
           <p className="text-sm text-slate-600 dark:text-slate-400">

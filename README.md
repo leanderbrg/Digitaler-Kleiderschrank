@@ -74,7 +74,12 @@ Static-Hoster ausliefern kann.
 
 ### GitHub Pages
 
-- Repository auf GitHub anlegen und pushen (Branch `main`).
+- Auf github.com ein **leeres** Repository anlegen (ohne README/Lizenz/.gitignore) und pushen:
+  ```bash
+  git remote add origin https://github.com/<user>/<repo-name>.git
+  git push -u origin main
+  ```
+  Beim ersten Push öffnet sich ein Browserfenster zur GitHub-Anmeldung.
 - Unter **Settings → Pages → Source** „GitHub Actions“ wählen.
 - Der Workflow `.github/workflows/deploy.yml` testet, baut mit `BASE_PATH=/<repo-name>/` und
   veröffentlicht automatisch. Die App liegt dann unter `https://<user>.github.io/<repo-name>/`.

@@ -9,6 +9,8 @@ import {
   type Aenderung,
   type TeilDaten,
 } from '../lib/aktionen';
+import type { Datenbestand } from '../lib/export';
+import { neueId } from '../lib/id';
 import type { Status, Teil } from '../types';
 import { db } from './db';
 
@@ -83,4 +85,64 @@ export async function endgueltigLoeschen(ids: string[]): Promise<number> {
   const loeschbar = teile.filter((t) => t.aussortiert).map((t) => t.id);
   await db.teile.bulkDelete(loeschbar);
   return loeschbar.length;
+}
+
+// --- Standorte & Kategorien ---
+
+export async function standortUmbenennen(id: string, name: string): Promise<void> {
+  const n = name.trim();
+  if (!n) throw new Error('Der Name darf nicht leer sein.');
+  await db.standorte.update(id, { name: n });
+}
+
+export async function kategorieHinzufuegen(name: string, emoji: string): Promise<void> {
+  const n = name.trim();
+  if (!n) throw new Error('Der Name darf nicht leer sein.');
+  const alle = await db.kategorien.toArray();
+  if (alle.some((k) => k.name.trim().toLowerCase() === n.toLowerCase())) throw new Error('Diese Kategorie gibt es schon.');
+  const reihenfolge = Math.max(0, ...alle.map((k) => k.reihenfolge)) + 1;
+  await db.kategorien.add({ id: neueId(), name: n, emoji: emoji.trim() || '📦', reihenfolge });
+}
+
+export async function kategorieAktualisieren(id: string, name: string, emoji: string): Promise<void> {
+  const n = name.trim();
+  if (!n) throw new Error('Der Name darf nicht leer sein.');
+  await db.kategorien.update(id, { name: n, emoji: emoji.trim() || '📦' });
+}
+
+/** Anzahl Teile (inkl. Papierkorb) in einer Kategorie. */
+export function teileInKategorie(id: string): Promise<number> {
+  return db.teile.where('kategorieId').equals(id).count();
+}
+
+/** Löscht eine Kategorie – nur wenn ihr keine Teile (auch keine aussortierten) mehr zugeordnet sind. */
+export async function kategorieLoeschen(id: string): Promise<void> {
+  await db.transaction('rw', db.kategorien, db.teile, async () => {
+    const n = await teileInKategorie(id);
+    if (n > 0) throw new Error(`Die Kategorie enthält noch ${n} ${n === 1 ? 'Teil' : 'Teile'} (inkl. Papierkorb).`);
+    await db.kategorien.delete(id);
+  });
+}
+
+// --- Export & Import ---
+
+export async function datenLesen(): Promise<Datenbestand> {
+  const [standorte, kategorien, teile, verlauf] = await Promise.all([
+    db.standorte.orderBy('reihenfolge').toArray(),
+    db.kategorien.orderBy('reihenfolge').toArray(),
+    db.teile.toArray(),
+    db.verlauf.orderBy('datum').toArray(),
+  ]);
+  return { standorte, kategorien, teile, verlauf };
+}
+
+/** Ersetzt den kompletten Datenbestand (Einstellungen bleiben erhalten). */
+export async function datenErsetzen(d: Datenbestand): Promise<void> {
+  await db.transaction('rw', [db.standorte, db.kategorien, db.teile, db.verlauf], async () => {
+    await Promise.all([db.standorte.clear(), db.kategorien.clear(), db.teile.clear(), db.verlauf.clear()]);
+    await db.standorte.bulkAdd(d.standorte);
+    await db.kategorien.bulkAdd(d.kategorien);
+    await db.teile.bulkAdd(d.teile);
+    await db.verlauf.bulkAdd(d.verlauf);
+  });
 }

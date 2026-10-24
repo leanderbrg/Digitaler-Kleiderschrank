@@ -27,7 +27,7 @@ export function useFarbschema(): [Farbschema, (s: Farbschema) => void] {
     anwenden(schema);
     if (schema !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = () => anwenden('system');
+    const onChange = () => anwenden(lesen()); // aktuellen Wert lesen – evtl. inzwischen umgestellt
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, [schema]);

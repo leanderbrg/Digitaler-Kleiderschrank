@@ -89,7 +89,7 @@ export default defineConfig({
         // Modelldateien von huggingface.co verwaltet Transformers.js selbst (Cache "transformers-cache");
         // der Service Worker fasst fremde Hosts nicht an.
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/ki\//],
+        navigateFallbackDenylist: [/\/ki\//],
       },
     }),
   ],

@@ -9,6 +9,7 @@ import {
   type Aenderung,
   type TeilDaten,
 } from '../lib/aktionen';
+import { ENTWURF_PRAEFIX, fasseVerlaufZusammen } from '../lib/autoSpeichern';
 import type { Datenbestand } from '../lib/export';
 import { neueId } from '../lib/id';
 import type { Status, Teil } from '../types';
@@ -53,10 +54,48 @@ export async function teileHinzufuegen(daten: TeilDaten, anzahl: number): Promis
   return { ...e, ids: a.teile.map((t) => t.id) };
 }
 
-export async function teilSpeichern(id: string, neu: Partial<TeilDaten>): Promise<Ergebnis> {
-  const alt = await db.teile.get(id);
-  if (!alt) throw new Error('Teil nicht gefunden');
-  return anwenden(bearbeiteTeil(alt, neu, kontext()), [alt]);
+/**
+ * Auto-Speichern im Bearbeiten-Modus: schreibt den aktuellen Stand und fasst "bearbeitet"-
+ * Einträge einer Bearbeitungssitzung (2 Minuten) zu einem Verlaufseintrag zusammen.
+ */
+export async function teilAutoSpeichern(id: string, neu: Partial<TeilDaten>, jetzt = Date.now()): Promise<void> {
+  await db.transaction('rw', db.teile, db.verlauf, async () => {
+    const alt = await db.teile.get(id);
+    if (!alt) throw new Error('Teil nicht gefunden');
+    const a = bearbeiteTeil(alt, neu, { jetzt, id: neueId });
+    if (!a.teile.length) return;
+    const verlaufDesTeils = await db.verlauf.where('teilId').equals(id).sortBy('datum');
+    const letzterBearbeitet = verlaufDesTeils.reverse().find((v) => v.aktion === 'bearbeitet');
+    const { hinzufuegen, aktualisieren } = fasseVerlaufZusammen(a.verlauf, letzterBearbeitet, jetzt);
+    await db.teile.put(a.teile[0]);
+    if (hinzufuegen.length) await db.verlauf.bulkAdd(hinzufuegen);
+    if (aktualisieren) await db.verlauf.put(aktualisieren);
+  });
+}
+
+/**
+ * Trägt Notfall-Entwürfe nach, die beim Schließen/Neuladen während des Bearbeitens
+ * gesichert wurden. Ungültige Entwürfe (leerer Name) werden verworfen.
+ */
+export async function entwuerfeNachtragen(speicher: Storage = localStorage): Promise<number> {
+  let anzahl = 0;
+  const schluessel = Array.from({ length: speicher.length }, (_, i) => speicher.key(i)).filter(
+    (k): k is string => !!k?.startsWith(ENTWURF_PRAEFIX),
+  );
+  for (const k of schluessel) {
+    try {
+      const daten = JSON.parse(speicher.getItem(k) ?? 'null') as Partial<TeilDaten> | null;
+      const id = k.slice(ENTWURF_PRAEFIX.length);
+      if (daten && (daten.name === undefined || daten.name.trim()) && (await db.teile.get(id))) {
+        await teilAutoSpeichern(id, daten);
+        anzahl++;
+      }
+    } catch (e) {
+      console.error('Entwurf konnte nicht nachgetragen werden', e);
+    }
+    speicher.removeItem(k);
+  }
+  return anzahl;
 }
 
 export async function verschieben(ids: string[], zielStandortId: string, status?: Status): Promise<Ergebnis> {

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { baueVorschlag, fuelleFelder, softmax, werteAus, type VorschlagsFeld } from './erkennung';
+import { describe, expect, it, vi } from 'vitest';
+import { baueVorschlag, erkenneKleidungsstueck, fuelleFelder, softmax, werteAus, type VorschlagsFeld } from './erkennung';
 import type { FarbAnalyse } from './farbe';
 import { typNachId } from './kleidungstypen';
 
@@ -60,6 +60,59 @@ describe('baueVorschlag', () => {
   });
 });
 
+describe('erkenneKleidungsstueck (Modell gemockt)', () => {
+  const bild = new Blob(['jpeg']);
+  const farbeAnalysieren = vi.fn(async () => hellblau);
+
+  it('liefert Typ + Farbe als Vorschlag', async () => {
+    const klassifizieren = vi.fn(async () => [
+      { id: 'jeans', wert: 0.8 },
+      { id: 'hose', wert: 0.15 },
+      { id: 'tshirt', wert: 0.05 },
+    ]);
+    const r = await erkenneKleidungsstueck(bild, { klassifizieren, farbeAnalysieren }, KATEGORIEN);
+    expect(klassifizieren).toHaveBeenCalledWith(bild);
+    expect(r.vorschlag).toEqual({ name: 'Helle Jeans', kategorieId: 'hosen', farbe: 'blau' });
+    expect(r.erkennung?.sicher).toBe(true);
+  });
+
+  it('füllt bei unsicherer Erkennung keinen Typ aus, liefert aber Top 3', async () => {
+    const klassifizieren = async () => [
+      { id: 'jeans', wert: 0.3 },
+      { id: 'hose', wert: 0.25 },
+      { id: 'jogginghose', wert: 0.2 },
+      { id: 'shorts', wert: 0.25 },
+    ];
+    const r = await erkenneKleidungsstueck(bild, { klassifizieren, farbeAnalysieren }, KATEGORIEN);
+    expect(r.erkennung?.sicher).toBe(false);
+    expect(r.vorschlag).toEqual({ farbe: 'blau' });
+    expect(r.erkennung?.top3).toHaveLength(3);
+  });
+
+  it('stürzt nicht ab, wenn das Modell nicht geladen werden kann', async () => {
+    const klassifizieren = async () => {
+      throw new Error('offline');
+    };
+    const r = await erkenneKleidungsstueck(bild, { klassifizieren, farbeAnalysieren }, KATEGORIEN);
+    expect(r.kiFehler).toBe('offline');
+    expect(r.vorschlag).toEqual({ farbe: 'blau' });
+  });
+
+  it('wertet auch Fehler ohne Text als Fehler', async () => {
+    const r = await erkenneKleidungsstueck(bild, { klassifizieren: () => Promise.reject(new Error('')), farbeAnalysieren }, KATEGORIEN);
+    expect(r.kiFehler).toBeTruthy();
+  });
+
+  it('kommt auch ohne Farbanalyse aus', async () => {
+    const r = await erkenneKleidungsstueck(
+      bild,
+      { klassifizieren: async () => [{ id: 'socken', wert: 0.9 }], farbeAnalysieren: async () => Promise.reject(new Error('canvas')) },
+      KATEGORIEN,
+    );
+    expect(r.vorschlag).toEqual({ name: 'Socken', kategorieId: 'socken' });
+  });
+});
+
 describe('fuelleFelder', () => {
   const leer = { name: '', kategorieId: 'hosen', farbe: '' };
   const vorschlag = { name: 'Weißes T-Shirt', kategorieId: 'tshirts', farbe: 'weiß' };
@@ -76,6 +129,14 @@ describe('fuelleFelder', () => {
       kategorieId: 'tshirts',
     });
   });
+  it('ersetzt einen unveränderten KI-Vorschlag eines früheren Fotos', () => {
+    const vorher = { name: 'Rotes T-Shirt', kategorieId: 'tshirts', farbe: 'rot' };
+    const neu = { name: 'Graue Socken', kategorieId: 'socken', farbe: 'grau' };
+    expect(fuelleFelder(vorher, neu, gesperrt(), new Set<VorschlagsFeld>(['name', 'farbe', 'kategorieId']))).toEqual(neu);
+    // …aber nicht, wenn der Nutzer den Namen inzwischen geändert hat
+    expect(fuelleFelder(vorher, neu, gesperrt('name'), new Set<VorschlagsFeld>(['farbe'])).name).toBeUndefined();
+  });
+
   it('lässt identische Werte aus', () => {
     expect(fuelleFelder({ name: '', kategorieId: 'tshirts', farbe: '' }, vorschlag, gesperrt()).kategorieId).toBeUndefined();
   });

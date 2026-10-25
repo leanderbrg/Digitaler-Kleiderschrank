@@ -9,11 +9,17 @@ import { StatusWahl } from '../components/Status';
 import { useToast } from '../components/Toast';
 import { db } from '../db/db';
 import { teileHinzufuegen } from '../db/repo';
+import KiBadge from '../components/KiBadge';
 import { useAutoSpeichern } from '../hooks/useAutoSpeichern';
 import { useAktiveTeile } from '../hooks/useDaten';
+import { useKi } from '../hooks/useKi';
+import { useKiErkennung } from '../hooks/useKiErkennung';
+import { kiLaden } from '../ki/kiDienst';
 import { useNachschlagen } from '../hooks/useNachschlagen';
 import type { TeilDaten } from '../lib/aktionen';
+import { fuelleFelder, type VorschlagsFeld } from '../lib/erkennung';
 import { gruppenSchluessel } from '../lib/gruppierung';
+import { baueName, kategorieFuerTyp, type Kleidungstyp } from '../lib/kleidungstypen';
 import { ANZAHL_MAX, ANZAHL_MIN, istGueltig, validiereTeil, type Fehler } from '../lib/validierung';
 import type { Status, Teil, Zustand } from '../types';
 
@@ -101,6 +107,20 @@ export default function TeilFormPage() {
   fotoRef.current = foto;
   const fotoGeaendert = useRef(false);
 
+  // KI-Vorschläge: nie Felder überschreiben, die der Nutzer geändert hat oder die vorbelegt sind
+  const ki = useKi();
+  const { anzeige: erkennung, erkenne, zuruecksetzen: erkennungZuruecksetzen } = useKiErkennung(kategorien);
+  const gesperrt = useRef(new Set<VorschlagsFeld>());
+  const [kiFelder, setKiFelder] = useState<ReadonlySet<VorschlagsFeld>>(new Set());
+  const kiFelderRef = useRef(kiFelder);
+  kiFelderRef.current = kiFelder;
+
+  // Bereits heruntergeladenes Modell beim Öffnen des Formulars im Hintergrund in den Worker
+  // laden, damit die erste Erkennung nicht auf das Laden warten muss (kein Download).
+  useEffect(() => {
+    if (ki.aktiv && ki.zustand.phase === 'gecacht') kiLaden();
+  }, [ki.aktiv, ki.zustand.phase]);
+
   // Formular einmalig vorbelegen (Bearbeiten, Vorlage oder Filter aus der Liste)
   useEffect(() => {
     let abbruch = false;
@@ -111,7 +131,10 @@ export default function TeilFormPage() {
       if (quelle) {
         setF(ausTeil(quelle));
         setFotoState(quelle.foto && quelle.thumb ? { foto: quelle.foto, thumb: quelle.thumb } : undefined);
+        // Vorhandene Werte sind "ausgefüllt"; eine leere Farbe darf die Erkennung ergänzen
+        gesperrt.current = new Set<VorschlagsFeld>(['name', 'kategorieId', ...(quelle.farbe ? (['farbe'] as const) : [])]);
       } else {
+        if (params.get('kategorie')) gesperrt.current.add('kategorieId');
         let letzter: string | null = null;
         try {
           letzter = localStorage.getItem(LETZTER_STANDORT);
@@ -171,12 +194,49 @@ export default function TeilFormPage() {
     speicher.aendern(daten, sofort);
   }
 
-  /** Feld ändern. `sofort` für Auswahlfelder/Schalter, sonst entprellt (Textfelder). */
+  /** Feld ändern (Nutzereingabe). `sofort` für Auswahlfelder/Schalter, sonst entprellt (Textfelder). */
   function aendere(patch: Partial<Formular>, sofort = true) {
+    const geaendert = Object.keys(patch).filter((k): k is VorschlagsFeld => ['name', 'kategorieId', 'farbe'].includes(k));
+    if (geaendert.length) {
+      geaendert.forEach((k) => gesperrt.current.add(k));
+      setKiFelder((alt) => new Set([...alt].filter((k) => !geaendert.includes(k))));
+    }
     const neu = { ...fRef.current, ...patch };
     fRef.current = neu;
     setF(neu);
     if (bearbeiten) autoSpeichern(neu, fotoRef.current, sofort);
+  }
+
+  /** KI-Vorschlag übernehmen – sperrt die Felder nicht, markiert sie aber als Vorschlag. */
+  function uebernimmVorschlag(patch: Partial<Record<VorschlagsFeld, string>>) {
+    const felder = Object.keys(patch) as VorschlagsFeld[];
+    if (!felder.length) return;
+    const neu = { ...fRef.current, ...patch };
+    fRef.current = neu;
+    setF(neu);
+    setKiFelder((alt) => new Set([...alt, ...felder]));
+    if (bearbeiten) autoSpeichern(neu, fotoRef.current, true);
+  }
+
+  async function erkennungStarten(neuesFoto: Blob) {
+    const ergebnis = await erkenne(neuesFoto);
+    if (!ergebnis) return;
+    const f = fRef.current;
+    uebernimmVorschlag(
+      fuelleFelder({ name: f.name, kategorieId: f.kategorieId, farbe: f.farbe }, ergebnis.vorschlag, gesperrt.current, kiFelderRef.current),
+    );
+  }
+
+  /** Antippen eines der Top-3-Vorschläge bei unsicherer Erkennung (bewusste Nutzerwahl) */
+  function typWaehlen(typ: Kleidungstyp) {
+    const farbe = erkennung.ergebnis?.farbe;
+    const patch: Partial<Formular> = {};
+    const name = baueName(typ, farbe?.farbe, farbe?.helligkeit);
+    if (name && !gesperrt.current.has('name')) patch.name = name;
+    const kategorieId = kategorieFuerTyp(typ, kategorien);
+    if (kategorieId) patch.kategorieId = kategorieId;
+    aendere(patch);
+    erkennungZuruecksetzen();
   }
 
   function setzeFoto(neu: FotoDaten | undefined) {
@@ -184,6 +244,9 @@ export default function TeilFormPage() {
     fotoGeaendert.current = true;
     setFotoState(neu);
     if (bearbeiten) autoSpeichern(fRef.current, neu, true);
+    // Erkennung auf dem bereits verkleinerten Foto (max. 800 px) – einmal pro Foto, unabhängig von "Anzahl"
+    if (neu && ki.aktiv) void erkennungStarten(neu.foto);
+    if (!neu) erkennungZuruecksetzen();
   }
 
   /** onBlur von Textfeldern: ausstehende Eingabe sofort schreiben */
@@ -213,6 +276,9 @@ export default function TeilFormPage() {
         setF((alt) => ({ ...LEER, kategorieId: alt.kategorieId, standortId: alt.standortId, status: alt.status }));
         setFotoState(undefined);
         setFehler({});
+        gesperrt.current = new Set();
+        setKiFelder(new Set());
+        erkennungZuruecksetzen();
         window.scrollTo({ top: 0 });
         nameRef.current?.focus();
       } else {
@@ -234,9 +300,46 @@ export default function TeilFormPage() {
       >
         <FotoWaehler wert={foto} onChange={setzeFoto} />
 
+        {(erkennung.laeuft || erkennung.meldung || erkennung.ergebnis) && (
+          <div aria-live="polite" className="-mt-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-950 dark:bg-violet-950/40 dark:text-violet-100">
+            {erkennung.laeuft ? (
+              <p className="flex items-center gap-2">
+                <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-violet-300 border-t-violet-700" />
+                Erkenne Kleidungsstück …
+              </p>
+            ) : (
+              <>
+                {erkennung.ergebnis?.erkennung?.sicher && (
+                  <p>
+                    ✨ Erkannt: <strong>{erkennung.ergebnis.erkennung.typ?.name}</strong>
+                    {erkennung.ergebnis.farbe && ` · Farbe ${erkennung.ergebnis.farbe.farbe}`}
+                  </p>
+                )}
+                {erkennung.meldung && <p>{erkennung.meldung}</p>}
+                {!erkennung.ergebnis?.erkennung?.sicher && erkennung.ergebnis?.erkennung?.top3.length ? (
+                  <div className="mt-2">
+                    <p className="mb-1 text-xs">Meintest du …</p>
+                    <div className="flex flex-wrap gap-2">
+                      {erkennung.ergebnis.erkennung.top3.map(({ typ, wert }) => (
+                        <button key={typ.id} type="button" className="chip-aus min-h-[44px]" onClick={() => typWaehlen(typ)}>
+                          {typ.name} <span className="text-xs text-slate-500 dark:text-slate-400">{Math.round(wert * 100)} %</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {!erkennung.ergebnis?.erkennung?.sicher && erkennung.ergebnis?.farbe && !erkennung.ergebnis.kiFehler && (
+                  <p className="mt-1 text-xs">Farbe: {erkennung.ergebnis.farbe.farbe}</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         <div>
           <label htmlFor="name" className="label">
             Name <span className="text-red-700 dark:text-red-400">*</span>
+            <KiBadge sichtbar={kiFelder.has('name')} />
           </label>
           <input
             ref={nameRef}
@@ -266,7 +369,10 @@ export default function TeilFormPage() {
         </div>
 
         <fieldset>
-          <legend className="label">Kategorie</legend>
+          <legend className="label">
+            Kategorie
+            <KiBadge sichtbar={kiFelder.has('kategorieId')} />
+          </legend>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {kategorien.map((k) => (
               <label key={k.id}>
@@ -306,6 +412,7 @@ export default function TeilFormPage() {
               <div>
                 <label htmlFor="farbe" className="label">
                   Farbe
+                  <KiBadge sichtbar={kiFelder.has('farbe')} />
                 </label>
                 <input
                   id="farbe"

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import BeispieldatenButton from '../components/BeispieldatenButton';
 import Dialog from '../components/Dialog';
+import KiEinstellungen from '../components/KiEinstellungen';
 import Seite from '../components/Seite';
 import Segment from '../components/Segment';
 import { useToast } from '../components/Toast';
@@ -38,6 +39,9 @@ export default function EinstellungenPage() {
         </Abschnitt>
         <Abschnitt titel="Kategorien">
           <KategorieListe />
+        </Abschnitt>
+        <Abschnitt titel="KI-Erkennung">
+          <KiEinstellungen />
         </Abschnitt>
         <Abschnitt titel="Darstellung">
           <Segment

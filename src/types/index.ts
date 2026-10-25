@@ -1,6 +1,14 @@
-export type Status = 'schrank' | 'waesche';
+export type Status = 'schrank' | 'getragen' | 'waesche';
 export type Zustand = 'gut' | 'abgetragen';
-export type Aktion = 'hinzugefügt' | 'aussortiert' | 'verschoben' | 'wäsche' | 'bearbeitet' | 'wiederhergestellt';
+/** "wäsche" stammt aus Version 1 und wird bei Migration/Import zu "status" umgeschrieben. */
+export type Aktion =
+  | 'hinzugefügt'
+  | 'aussortiert'
+  | 'verschoben'
+  | 'status'
+  | 'wäsche'
+  | 'bearbeitet'
+  | 'wiederhergestellt';
 
 export interface Standort {
   id: string;
@@ -64,9 +72,19 @@ export interface Einstellung {
 
 export const AUSSORTIER_GRUENDE = ['Loch', 'zu klein', 'verschlissen', 'verschenkt', 'Sonstiges'] as const;
 
+export const STATUS_WERTE: Status[] = ['schrank', 'getragen', 'waesche'];
+
 export const STATUS_LABEL: Record<Status, string> = {
   schrank: 'im Schrank',
+  getragen: 'getragen',
   waesche: 'in der Wäsche',
+};
+
+/** Kurzlabel + Icon für Segment-Controls und Badges (nie nur Farbe als Unterscheidung) */
+export const STATUS_INFO: Record<Status, { kurz: string; icon: string }> = {
+  schrank: { kurz: 'Schrank', icon: '🗄️' },
+  getragen: { kurz: 'Getragen', icon: '🪑' },
+  waesche: { kurz: 'Wäsche', icon: '🧺' },
 };
 
 export const ZUSTAND_LABEL: Record<Zustand, string> = {

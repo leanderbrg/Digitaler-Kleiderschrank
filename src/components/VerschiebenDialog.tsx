@@ -4,6 +4,7 @@ import { useNachschlagen } from '../hooks/useNachschlagen';
 import type { Status } from '../types';
 import Dialog from './Dialog';
 import Segment from './Segment';
+import { StatusWahl } from './Status';
 import { useToast } from './Toast';
 
 interface Props {
@@ -15,22 +16,20 @@ interface Props {
   onFertig?: () => void;
 }
 
-type StatusWahl = 'gleich' | Status;
-
 export default function VerschiebenDialog({ ids, vonStandortId, offen, onSchliessen, onFertig }: Props) {
   const { standorte, standortName } = useNachschlagen();
   const [ziel, setZiel] = useState('');
-  const [status, setStatus] = useState<StatusWahl>('gleich');
+  const [status, setStatus] = useState<Status | undefined>();
   const toast = useToast();
 
   useEffect(() => {
     if (!offen) return;
     setZiel(standorte.find((s) => s.id !== vonStandortId)?.id ?? standorte[0]?.id ?? '');
-    setStatus('gleich');
+    setStatus(undefined);
   }, [offen, standorte, vonStandortId]);
 
   async function bestaetigen() {
-    const e = await verschieben(ids, ziel, status === 'gleich' ? undefined : status);
+    const e = await verschieben(ids, ziel, status);
     onSchliessen();
     onFertig?.();
     toast.zeige(
@@ -64,16 +63,7 @@ export default function VerschiebenDialog({ ids, vonStandortId, offen, onSchlies
           wert={ziel}
           onChange={setZiel}
         />
-        <Segment<StatusWahl>
-          label="Status dabei setzen"
-          optionen={[
-            { wert: 'gleich', label: 'Unverändert' },
-            { wert: 'schrank', label: 'Im Schrank' },
-            { wert: 'waesche', label: 'In der Wäsche' },
-          ]}
-          wert={status}
-          onChange={setStatus}
-        />
+        <StatusWahl label="Status dabei setzen" wert={status} onChange={setStatus} mitUnveraendert />
       </div>
     </Dialog>
   );

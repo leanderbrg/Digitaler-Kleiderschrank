@@ -116,8 +116,9 @@ export default function ListePage() {
               onChange={(e) => setzeParam('status', e.target.value)}
             >
               <option value="">Alle</option>
-              <option value="schrank">Im Schrank</option>
-              <option value="waesche">In der Wäsche</option>
+              <option value="schrank">🗄️ Im Schrank</option>
+              <option value="getragen">🪑 Getragen</option>
+              <option value="waesche">🧺 In der Wäsche</option>
             </select>
           </div>
         </div>

@@ -4,6 +4,7 @@ import FotoWaehler, { type FotoDaten } from '../components/FotoWaehler';
 import { gruppenPfad } from '../components/GruppenKarte';
 import Seite from '../components/Seite';
 import Segment from '../components/Segment';
+import { StatusWahl } from '../components/Status';
 import { useToast } from '../components/Toast';
 import { db } from '../db/db';
 import { teileHinzufuegen, teilSpeichern } from '../db/repo';
@@ -247,15 +248,7 @@ export default function TeilFormPage() {
         <details className="karte p-4" open={bearbeiten || !!vorlageId}>
           <summary className="-m-2 cursor-pointer rounded-lg p-2 font-medium">Weitere Angaben (optional)</summary>
           <div className="mt-4 space-y-5">
-            <Segment
-              label="Status"
-              optionen={[
-                { wert: 'schrank', label: '🗄️ Im Schrank' },
-                { wert: 'waesche', label: '🧺 In der Wäsche' },
-              ]}
-              wert={f.status}
-              onChange={(v) => setze('status', v)}
-            />
+            <StatusWahl label="Status" wert={f.status} onChange={(v) => v && setze('status', v)} />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="farbe" className="label">

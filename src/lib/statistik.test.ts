@@ -4,6 +4,7 @@ import {
   aussortierEreignisse,
   aussortiertProMonat,
   bestandMatrix,
+  bestandNachStatus,
   bestandProKategorie,
   haeufigsteGruende,
   standortSummen,
@@ -25,10 +26,20 @@ function v(teilId: string, aktion: Verlaufseintrag['aktion'], datum: number, gru
 }
 
 describe('standortSummen', () => {
-  it('zählt aktive Teile und Wäsche je Standort', () => {
-    expect(standortSummen(teile, S)).toEqual([
-      { standortId: 'standort-1', gesamt: 4, waesche: 1 },
-      { standortId: 'standort-2', gesamt: 1, waesche: 1 },
+  it('zählt aktive, getragene und Wäsche-Teile je Standort', () => {
+    expect(standortSummen([...teile, teil({ status: 'getragen' })], S)).toEqual([
+      { standortId: 'standort-1', gesamt: 5, getragen: 1, waesche: 1 },
+      { standortId: 'standort-2', gesamt: 1, getragen: 0, waesche: 1 },
+    ]);
+  });
+});
+
+describe('bestandNachStatus', () => {
+  it('liefert immer alle drei Status', () => {
+    expect(bestandNachStatus([...teile, teil({ status: 'getragen' })])).toEqual([
+      { status: 'schrank', anzahl: 3 },
+      { status: 'getragen', anzahl: 1 },
+      { status: 'waesche', anzahl: 2 },
     ]);
   });
 });

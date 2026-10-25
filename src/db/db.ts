@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
+import { normalisiereTeil } from '../lib/migration';
 import type { Einstellung, Kategorie, Standort, Teil, Verlaufseintrag } from '../types';
 
 export class KleiderschrankDB extends Dexie {
@@ -18,6 +19,22 @@ export class KleiderschrankDB extends Dexie {
       verlauf: 'id, datum, teilId, aktion',
       einstellungen: 'key',
     });
+    // Version 2: neuer Status "getragen". Bestehende Werte bleiben gültig; Verlaufsaktion
+    // "wäsche" wird zu "status" (Details mit von/nach-Status bleiben unverändert).
+    this.version(2)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table('teile').toCollection().modify((t: Teil) => {
+          Object.assign(t, normalisiereTeil(t));
+        });
+        await tx
+          .table('verlauf')
+          .where('aktion')
+          .equals('wäsche')
+          .modify((v: Verlaufseintrag) => {
+            v.aktion = 'status';
+          });
+      });
     this.on('populate', (tx) => {
       tx.table('standorte').bulkAdd(STANDARD_STANDORTE);
       tx.table('kategorien').bulkAdd(STANDARD_KATEGORIEN);

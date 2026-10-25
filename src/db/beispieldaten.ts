@@ -35,20 +35,21 @@ async function beispielFoto(emoji: string, farbe: string): Promise<{ foto: Blob;
   return { foto, thumb };
 }
 
-type Vorlage = [name: string, kategorieId: string, farbe: string, emoji: string, verteilung: [s1: number, s2: number, waesche: number], groesse?: string];
+type Vorlage = [name: string, kategorieId: string, farbe: string, emoji: string, verteilung: [s1: number, s2: number, waesche: number, getragen: number], groesse?: string];
 
+// Verteilung: [an Standort 1, an Standort 2, davon an Standort 1 in der Wäsche, davon an Standort 1 getragen]
 const VORLAGEN: Vorlage[] = [
-  ['Jeans Slim', 'hosen', 'blau', '👖', [2, 1, 1], '32/32'],
-  ['Chino', 'hosen', 'beige', '👖', [1, 1, 0], '32/32'],
-  ['Sneaker-Socken', 'socken', 'weiß', '🧦', [5, 3, 2], '43–46'],
-  ['Wollsocken', 'socken', 'grau', '🧦', [2, 0, 0], '43–46'],
-  ['Boxershorts', 'unterhosen', 'schwarz', '🩲', [4, 3, 2], 'L'],
-  ['Basic Shirt', 'tshirts', 'weiß', '👕', [3, 2, 1], 'L'],
-  ['Basic Shirt', 'tshirts', 'schwarz', '👕', [2, 1, 0], 'L'],
-  ['Oxford-Hemd', 'hemden', 'blau', '👔', [2, 0, 1], '41'],
-  ['Strickpullover', 'pullover', 'dunkelblau', '🧶', [1, 1, 0], 'L'],
-  ['Regenjacke', 'jacken', 'grün', '🧥', [0, 1, 0], 'L'],
-  ['Laufschuhe', 'schuhe', 'rot', '👟', [1, 0, 0], '44'],
+  ['Jeans Slim', 'hosen', 'blau', '👖', [2, 1, 1, 1], '32/32'],
+  ['Chino', 'hosen', 'beige', '👖', [1, 1, 0, 1], '32/32'],
+  ['Sneaker-Socken', 'socken', 'weiß', '🧦', [5, 3, 2, 0], '43–46'],
+  ['Wollsocken', 'socken', 'grau', '🧦', [2, 0, 0, 0], '43–46'],
+  ['Boxershorts', 'unterhosen', 'schwarz', '🩲', [4, 3, 2, 0], 'L'],
+  ['Basic Shirt', 'tshirts', 'weiß', '👕', [3, 2, 1, 1], 'L'],
+  ['Basic Shirt', 'tshirts', 'schwarz', '👕', [2, 1, 0, 0], 'L'],
+  ['Oxford-Hemd', 'hemden', 'blau', '👔', [2, 0, 1, 0], '41'],
+  ['Strickpullover', 'pullover', 'dunkelblau', '🧶', [1, 1, 0, 1], 'L'],
+  ['Regenjacke', 'jacken', 'grün', '🧥', [0, 1, 0, 0], 'L'],
+  ['Laufschuhe', 'schuhe', 'rot', '👟', [1, 0, 0, 0], '44'],
 ];
 
 /** Lädt Beispieldaten (markiert mit `beispiel: true`), inkl. einiger aussortierter Teile für die Statistik. */
@@ -66,19 +67,22 @@ export async function beispieldatenLaden(): Promise<number> {
   const tag = 24 * 60 * 60 * 1000;
   const jetzt = Date.now();
 
-  for (const [name, kat, farbe, emoji, [n1, n2, w], groesse] of VORLAGEN) {
+  for (const [name, kat, farbe, emoji, [n1, n2, w, g], groesse] of VORLAGEN) {
     const kategorieId = kategorien.has(kat) ? kat : 'sonstiges';
     const bild = await beispielFoto(emoji, farbe);
     const basis = { name, kategorieId, farbe, groesse, zustand: 'gut' as const, beispiel: true, ...bild };
     const k = { jetzt: jetzt - 40 * tag, id: neueId };
-    const mitStatus = (standortId: string, anzahl: number, waesche: number) => {
+    const mitStatus = (standortId: string, anzahl: number, waesche: number, getragen: number) => {
       if (anzahl <= 0) return;
       const im = (status: Status, n: number) => n > 0 && sammle(erzeugeTeile({ ...basis, standortId, status }, n, k));
-      im('waesche', Math.min(waesche, anzahl));
-      im('schrank', anzahl - Math.min(waesche, anzahl));
+      const nWaesche = Math.min(waesche, anzahl);
+      const nGetragen = Math.min(getragen, anzahl - nWaesche);
+      im('waesche', nWaesche);
+      im('getragen', nGetragen);
+      im('schrank', anzahl - nWaesche - nGetragen);
     };
-    mitStatus(s1, n1, w);
-    mitStatus(s2, n2, 0);
+    mitStatus(s1, n1, w, g);
+    mitStatus(s2, n2, 0, name === 'Basic Shirt' && farbe === 'weiß' ? 1 : 0);
   }
 
   // Aussortierte Teile in den letzten Monaten

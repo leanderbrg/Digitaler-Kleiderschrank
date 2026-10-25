@@ -72,7 +72,7 @@ const BEARBEITBAR = ['name', 'kategorieId', 'groesse', 'farbe', 'zustand', 'noti
 
 /**
  * Übernimmt Änderungen an einem Teil. Standortwechsel erzeugen "verschoben",
- * Statuswechsel "wäsche", alle übrigen Feldänderungen einen "bearbeitet"-Eintrag.
+ * Statuswechsel "status", alle übrigen Feldänderungen einen "bearbeitet"-Eintrag.
  */
 export function bearbeiteTeil(alt: Teil, neu: Partial<TeilDaten>, k: Kontext): Aenderung {
   const t: Teil = { ...alt };
@@ -96,7 +96,7 @@ export function bearbeiteTeil(alt: Teil, neu: Partial<TeilDaten>, k: Kontext): A
   }
   if (neu.status && neu.status !== alt.status) {
     t.status = neu.status;
-    verlauf.push(eintrag(t, 'wäsche', { vonStatus: alt.status, nachStatus: neu.status }, k));
+    verlauf.push(eintrag(t, 'status', { vonStatus: alt.status, nachStatus: neu.status }, k));
   }
   if (geaenderteFelder.length) {
     verlauf.push(eintrag(t, 'bearbeitet', { text: geaenderteFelder.map(feldLabel).join(', ') }, k));
@@ -136,7 +136,7 @@ export function setzeStatus(teile: Teil[], status: Status, k: Kontext): Aenderun
     if (alt.aussortiert || alt.status === status) continue;
     const t: Teil = { ...alt, status, geaendertAm: k.jetzt };
     ergebnis.teile.push(t);
-    ergebnis.verlauf.push(eintrag(t, 'wäsche', { vonStatus: alt.status, nachStatus: status }, k));
+    ergebnis.verlauf.push(eintrag(t, 'status', { vonStatus: alt.status, nachStatus: status }, k));
   }
   return ergebnis;
 }

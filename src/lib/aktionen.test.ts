@@ -34,7 +34,7 @@ describe('bearbeiteTeil', () => {
     const alt = teil({ farbe: 'blau' });
     const a = bearbeiteTeil(alt, { standortId: 'standort-2', status: 'waesche', farbe: 'rot', name: alt.name }, k());
     expect(a.teile[0]).toMatchObject({ standortId: 'standort-2', status: 'waesche', farbe: 'rot', geaendertAm: 5000 });
-    expect(a.verlauf.map((v) => v.aktion)).toEqual(['verschoben', 'wäsche', 'bearbeitet']);
+    expect(a.verlauf.map((v) => v.aktion)).toEqual(['verschoben', 'status', 'bearbeitet']);
     expect(a.verlauf[0].details).toEqual({ vonStandortId: 'standort-1', nachStandortId: 'standort-2' });
     expect(a.verlauf[2].details?.text).toBe('Farbe');
   });
@@ -61,7 +61,11 @@ describe('verschiebeTeile', () => {
       ['a', 'standort-2', 'waesche'],
       ['b', 'standort-2', 'waesche'],
     ]);
-    expect(b.verlauf.map((v) => v.aktion)).toEqual(['verschoben', 'wäsche', 'wäsche']);
+    expect(b.verlauf.map((v) => v.aktion)).toEqual(['verschoben', 'status', 'status']);
+
+    const c = verschiebeTeile([teil({ id: 'd' })], 'standort-2', 'getragen', k());
+    expect(c.teile[0]).toMatchObject({ standortId: 'standort-2', status: 'getragen' });
+    expect(c.verlauf[1].details).toEqual({ vonStatus: 'schrank', nachStatus: 'getragen' });
   });
 });
 

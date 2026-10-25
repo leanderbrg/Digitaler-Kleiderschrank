@@ -43,14 +43,10 @@ export default function UebersichtPage() {
           >
             <span className="truncate text-sm font-medium text-slate-600 dark:text-slate-400">📍 {n.standortName(s.standortId)}</span>
             <span className="text-4xl font-bold tabular-nums">{s.gesamt}</span>
-            <span className="text-sm text-slate-600 dark:text-slate-400">
-              {s.gesamt === 1 ? 'Teil' : 'Teile'}
-              {s.waesche > 0 && (
-                <>
-                  {' · '}
-                  <span className="text-sky-800 dark:text-sky-300">🧺 {s.waesche} in der Wäsche</span>
-                </>
-              )}
+            <span className="text-sm text-slate-600 dark:text-slate-400">{s.gesamt === 1 ? 'Teil gesamt' : 'Teile gesamt'}</span>
+            <span className="text-sm">
+              <span className="block text-amber-800 dark:text-amber-300">🪑 {s.getragen} getragen</span>
+              <span className="block text-sky-800 dark:text-sky-300">🧺 {s.waesche} in der Wäsche</span>
             </span>
           </Link>
         ))}

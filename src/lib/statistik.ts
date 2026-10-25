@@ -1,17 +1,31 @@
-import type { Teil, Verlaufseintrag } from '../types';
+import { STATUS_WERTE, type Status, type Teil, type Verlaufseintrag } from '../types';
 
 export interface StandortSumme {
   standortId: string;
   gesamt: number;
+  getragen: number;
   waesche: number;
 }
 
-/** Gesamtzahl und Wäsche-Anzahl aktiver Teile je Standort (in der gegebenen Reihenfolge). */
+/** Gesamtzahl sowie getragene und Wäsche-Teile je Standort (in der gegebenen Reihenfolge). */
 export function standortSummen(teile: Teil[], standortIds: string[]): StandortSumme[] {
   return standortIds.map((standortId) => {
     const hier = teile.filter((t) => !t.aussortiert && t.standortId === standortId);
-    return { standortId, gesamt: hier.length, waesche: hier.filter((t) => t.status === 'waesche').length };
+    return {
+      standortId,
+      gesamt: hier.length,
+      getragen: hier.filter((t) => t.status === 'getragen').length,
+      waesche: hier.filter((t) => t.status === 'waesche').length,
+    };
   });
+}
+
+/** Aktiver Bestand je Status (immer alle drei Status, in fester Reihenfolge). */
+export function bestandNachStatus(teile: Teil[]): { status: Status; anzahl: number }[] {
+  return STATUS_WERTE.map((status) => ({
+    status,
+    anzahl: teile.filter((t) => !t.aussortiert && t.status === status).length,
+  }));
 }
 
 export interface Matrix {

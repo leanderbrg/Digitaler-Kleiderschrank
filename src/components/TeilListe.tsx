@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { statusSetzen } from '../db/repo';
 import { useAuswahl } from '../hooks/useAuswahl';
-import type { Status, Teil } from '../types';
+import { STATUS_INFO, STATUS_LABEL, STATUS_WERTE, type Status, type Teil } from '../types';
 import AussortierenDialog from './AussortierenDialog';
 import TeilKarte from './TeilKarte';
 import { useToast } from './Toast';
@@ -29,10 +29,7 @@ export default function TeilListe({ teile, gross }: Props) {
 
   async function statusFuerAuswahl(status: Status) {
     const e = await statusSetzen(auswahl.ids, status);
-    toast.zeige(
-      `${e.anzahl} ${e.anzahl === 1 ? 'Teil' : 'Teile'} ${status === 'waesche' ? 'in die Wäsche' : 'zurück in den Schrank'}`,
-      e.anzahl ? e.rueckgaengig : undefined,
-    );
+    toast.zeige(`${e.anzahl} ${e.anzahl === 1 ? 'Teil' : 'Teile'}: ${STATUS_LABEL[status]}`, e.anzahl ? e.rueckgaengig : undefined);
     beenden();
   }
 
@@ -88,12 +85,11 @@ export default function TeilListe({ teile, gross }: Props) {
               {auswahl.anzahl} ausgewählt
             </span>
             <div className="ml-auto flex flex-wrap gap-1">
-              <button type="button" className="btn-sekundaer px-3" disabled={!auswahl.anzahl} onClick={() => statusFuerAuswahl('waesche')}>
-                🧺 Wäsche
-              </button>
-              <button type="button" className="btn-sekundaer px-3" disabled={!auswahl.anzahl} onClick={() => statusFuerAuswahl('schrank')}>
-                🗄️ Schrank
-              </button>
+              {STATUS_WERTE.map((s) => (
+                <button key={s} type="button" className="btn-sekundaer px-3" disabled={!auswahl.anzahl} onClick={() => statusFuerAuswahl(s)}>
+                  <span aria-hidden="true">{STATUS_INFO[s].icon}</span> {STATUS_INFO[s].kurz}
+                </button>
+              ))}
               <button
                 type="button"
                 className="btn-sekundaer px-3"

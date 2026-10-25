@@ -13,11 +13,12 @@ import { useNachschlagen } from '../hooks/useNachschlagen';
 import {
   aussortierEreignisse,
   aussortiertProMonat,
+  bestandNachStatus,
   bestandProKategorie,
   haeufigsteGruende,
 } from '../lib/statistik';
-import { AKTION_INFO, tagesLabel, verlaufDetails } from '../lib/verlaufText';
-import type { Aktion, Teil, Verlaufseintrag } from '../types';
+import { AKTION_INFO, FILTER_AKTIONEN, passtZuAktion, tagesLabel, verlaufDetails } from '../lib/verlaufText';
+import { STATUS_INFO, type Aktion, type Teil, type Verlaufseintrag } from '../types';
 
 const TABS = [
   ['verlauf', 'Verlauf'],
@@ -71,7 +72,7 @@ function VerlaufListe() {
     const s = suche.trim().toLowerCase();
     return (verlauf ?? []).filter(
       (v) =>
-        (!aktion || v.aktion === aktion) &&
+        passtZuAktion(v, aktion) &&
         (!kategorie || v.kategorieId === kategorie) &&
         (!s || v.teilName.toLowerCase().includes(s)),
     );
@@ -107,7 +108,7 @@ function VerlaufListe() {
           </label>
           <select id="v-aktion" className="eingabe" value={aktion} onChange={(e) => setAktion(e.target.value as Aktion | '')}>
             <option value="">Alle</option>
-            {(Object.keys(AKTION_INFO) as Aktion[]).map((a) => (
+            {FILTER_AKTIONEN.map((a) => (
               <option key={a} value={a}>
                 {AKTION_INFO[a].emoji} {AKTION_INFO[a].label}
               </option>
@@ -183,6 +184,7 @@ function Statistik() {
     const ereignisse = aussortierEreignisse(verlauf ?? []);
     return {
       bestand: bestandProKategorie(teile ?? [], n.kategorieReihenfolge),
+      nachStatus: bestandNachStatus(teile ?? []),
       monate: aussortiertProMonat(ereignisse, Date.now(), 12),
       gruende: haeufigsteGruende(ereignisse),
       aussortiertGesamt: ereignisse.length,
@@ -214,6 +216,13 @@ function Statistik() {
         ) : (
           <p className="text-sm text-slate-600 dark:text-slate-400">Noch keine Teile erfasst.</p>
         )}
+      </section>
+
+      <section className="karte p-4">
+        <h2 className="mb-3 font-semibold">Bestand nach Status</h2>
+        <BalkenHorizontal
+          daten={daten.nachStatus.map((s) => ({ label: STATUS_INFO[s.status].kurz, icon: STATUS_INFO[s.status].icon, wert: s.anzahl }))}
+        />
       </section>
 
       <section className="karte p-4">

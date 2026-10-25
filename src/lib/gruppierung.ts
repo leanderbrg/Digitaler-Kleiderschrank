@@ -13,6 +13,7 @@ export function gruppenSchluessel(t: Pick<Teil, 'kategorieId' | 'name' | 'farbe'
 export interface StandortAnzahl {
   standortId: string;
   anzahl: number;
+  getragen: number;
   waesche: number;
 }
 
@@ -24,6 +25,7 @@ export interface Gruppe {
   /** Einzelteile in der Reihenfolge der Eingabe; das erste liefert das Vorschaufoto */
   teile: Teil[];
   anzahl: number;
+  getragen: number;
   waesche: number;
   proStandort: StandortAnzahl[];
 }
@@ -56,6 +58,7 @@ export function gruppiere(teile: Teil[], sortierung: Sortierung = {}): Gruppe[] 
         kategorieId: t.kategorieId,
         teile: [],
         anzahl: 0,
+        getragen: 0,
         waesche: 0,
         proStandort: [],
       };
@@ -65,13 +68,16 @@ export function gruppiere(teile: Teil[], sortierung: Sortierung = {}): Gruppe[] 
     g.anzahl++;
     let s = g.proStandort.find((p) => p.standortId === t.standortId);
     if (!s) {
-      s = { standortId: t.standortId, anzahl: 0, waesche: 0 };
+      s = { standortId: t.standortId, anzahl: 0, getragen: 0, waesche: 0 };
       g.proStandort.push(s);
     }
     s.anzahl++;
     if (t.status === 'waesche') {
       s.waesche++;
       g.waesche++;
+    } else if (t.status === 'getragen') {
+      s.getragen++;
+      g.getragen++;
     }
   }
 
@@ -90,10 +96,18 @@ export function gruppiere(teile: Teil[], sortierung: Sortierung = {}): Gruppe[] 
   return gruppen;
 }
 
-/** z. B. "4 Stück: Standort 1: 3 (1 in der Wäsche), Standort 2: 1" */
+/** "1 getragen, 2 in der Wäsche" – leer, wenn alles im Schrank ist */
+export function statusZusatz(s: { getragen: number; waesche: number }): string {
+  return [s.getragen > 0 && `${s.getragen} getragen`, s.waesche > 0 && `${s.waesche} in der Wäsche`]
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** z. B. "4 Stück: Standort 1: 3 (1 getragen, 1 in der Wäsche), Standort 2: 1" */
 export function formatAufschluesselung(g: Gruppe, standortName: (id: string) => string): string {
-  const teile = g.proStandort.map(
-    (s) => `${standortName(s.standortId)}: ${s.anzahl}${s.waesche > 0 ? ` (${s.waesche} in der Wäsche)` : ''}`,
-  );
+  const teile = g.proStandort.map((s) => {
+    const zusatz = statusZusatz(s);
+    return `${standortName(s.standortId)}: ${s.anzahl}${zusatz ? ` (${zusatz})` : ''}`;
+  });
   return `${g.anzahl} Stück: ${teile.join(', ')}`;
 }

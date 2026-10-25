@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import LeerZustand from '../components/LeerZustand';
 import Seite from '../components/Seite';
-import Segment from '../components/Segment';
+import { StatusWahl } from '../components/Status';
 import TeilFoto from '../components/TeilFoto';
 import { useToast } from '../components/Toast';
 import { verschieben } from '../db/repo';
@@ -13,8 +13,6 @@ import { filterTeile } from '../lib/filter';
 import { gruppiere } from '../lib/gruppierung';
 import { STATUS_LABEL, type Status } from '../types';
 
-type StatusWahl = 'gleich' | Status;
-
 /** Verschieben & Packliste: Teile von Quelle nach Ziel auswählen und gesammelt verschieben. */
 export default function VerschiebenPage() {
   const [params] = useSearchParams();
@@ -24,7 +22,7 @@ export default function VerschiebenPage() {
 
   const [quelle, setQuelle] = useState(params.get('von') ?? '');
   const [ziel, setZiel] = useState('');
-  const [status, setStatus] = useState<StatusWahl>('gleich');
+  const [status, setStatus] = useState<Status | undefined>();
   const [kategorie, setKategorie] = useState('');
 
   useEffect(() => {
@@ -43,7 +41,7 @@ export default function VerschiebenPage() {
   const auswahl = useAuswahl(ids);
 
   async function ausfuehren() {
-    const e = await verschieben(auswahl.ids, ziel, status === 'gleich' ? undefined : status);
+    const e = await verschieben(auswahl.ids, ziel, status);
     toast.zeige(`${e.anzahl} ${e.anzahl === 1 ? 'Teil' : 'Teile'} nach ${n.standortName(ziel)} verschoben`, e.rueckgaengig);
     auswahl.leeren();
   }
@@ -90,16 +88,7 @@ export default function VerschiebenPage() {
             </select>
           </div>
         </div>
-        <Segment<StatusWahl>
-          label="Status dabei setzen"
-          optionen={[
-            { wert: 'gleich', label: 'Unverändert' },
-            { wert: 'schrank', label: 'Im Schrank' },
-            { wert: 'waesche', label: 'In der Wäsche' },
-          ]}
-          wert={status}
-          onChange={setStatus}
-        />
+        <StatusWahl label="Status dabei setzen" wert={status} onChange={setStatus} mitUnveraendert />
         <div>
           <label htmlFor="pk-kategorie" className="label">
             Kategorie

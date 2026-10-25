@@ -1,7 +1,9 @@
 import type { Kategorie, Standort, Teil, Verlaufseintrag } from '../types';
+import { normalisiereTeil, normalisiereVerlauf } from './migration';
 
 export const EXPORT_FORMAT = 'kleiderschrank-export';
-export const EXPORT_VERSION = 1;
+/** Version 2: Status "getragen", Verlaufsaktion "status". Version-1-Dateien werden beim Import migriert. */
+export const EXPORT_VERSION = 2;
 
 type TeilExport = Omit<Teil, 'foto' | 'thumb'> & { foto?: string; thumb?: string };
 
@@ -101,10 +103,7 @@ export function pruefeImport(json: unknown): ImportErgebnis {
     const teileMitBlobs: Teil[] = (t as TeilExport[]).map((x) => {
       const { foto, thumb, ...rest } = x;
       return {
-        ...rest,
-        status: rest.status === 'waesche' ? 'waesche' : 'schrank',
-        zustand: rest.zustand === 'abgetragen' ? 'abgetragen' : 'gut',
-        aussortiert: !!rest.aussortiert,
+        ...normalisiereTeil(rest),
         ...(foto ? { foto: base64ZuBlob(foto) } : {}),
         ...(thumb ? { thumb: base64ZuBlob(thumb) } : foto ? { thumb: base64ZuBlob(foto) } : {}),
       };
@@ -115,7 +114,7 @@ export function pruefeImport(json: unknown): ImportErgebnis {
         standorte: s as Standort[],
         kategorien: (k as Kategorie[]).map((x, i) => ({ ...x, emoji: x.emoji ?? '📦', reihenfolge: x.reihenfolge ?? i + 1 })),
         teile: teileMitBlobs,
-        verlauf: v as Verlaufseintrag[],
+        verlauf: (v as Verlaufseintrag[]).map(normalisiereVerlauf),
       },
     };
   } catch {

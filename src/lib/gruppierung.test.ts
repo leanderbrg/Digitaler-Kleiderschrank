@@ -41,11 +41,25 @@ describe('gruppiere', () => {
     expect(schwarz.waesche).toBe(1);
     expect(schwarz.teile[0]).toBe(teile[0]);
     expect(schwarz.proStandort).toEqual([
-      { standortId: 'standort-1', anzahl: 3, waesche: 1 },
-      { standortId: 'standort-2', anzahl: 1, waesche: 0 },
+      { standortId: 'standort-1', anzahl: 3, getragen: 0, waesche: 1 },
+      { standortId: 'standort-2', anzahl: 1, getragen: 0, waesche: 0 },
     ]);
     expect(formatAufschluesselung(schwarz, (id) => namen[id])).toBe(
       '4 Stück: Standort 1: 3 (1 in der Wäsche), Standort 2: 1',
+    );
+  });
+
+  it('schlüsselt alle drei Status auf', () => {
+    const teile = [
+      teil({ name: 'Jeans' }),
+      teil({ name: 'Jeans', status: 'getragen' }),
+      teil({ name: 'Jeans', status: 'waesche' }),
+      teil({ name: 'Jeans', standortId: 'standort-2', status: 'getragen' }),
+    ];
+    const [g] = gruppiere(teile, { standortReihenfolge: ['standort-1', 'standort-2'] });
+    expect([g.anzahl, g.getragen, g.waesche]).toEqual([4, 2, 1]);
+    expect(formatAufschluesselung(g, (id) => namen[id])).toBe(
+      '4 Stück: Standort 1: 3 (1 getragen, 1 in der Wäsche), Standort 2: 1 (1 getragen)',
     );
   });
 
